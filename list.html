@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="https://cdsconsulting.com.br/youtube/favicon.ico" type="image/ico">
+    <link rel="shortcut icon" href="https://cdsconsulting.com.br/youtube/favicon.ico">
+    <link rel="apple-touch-icon" href="https://cdsconsulting.com.br/youtube/favicon.ico">
+    <title>Lista de Vídeos Salvos</title>
+    <style>
+      body {
+        background-color: black;
+        color: white;
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      table {
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+        border-collapse: collapse;
+      }
+      td {
+        padding: 10px;
+        border: 1px solid #555;
+        vertical-align: top;
+      }
+      .left {
+        width: 70%;
+      }
+      .right {
+        width: 30%;
+        text-align: center;
+      }
+      img {
+        max-width: 200px;
+        height: auto;
+      }
+      button {
+        background-color: #555;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        margin: 5px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      button:hover {
+        background-color: #777;
+      }
+      #videoTable {
+        margin-top: 20px;
+      }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body>
+    <h1>Lista de Vídeos Salvos</h1>
+    <table id="videoTable">
+      <thead>
+        <tr>
+          <th>Dados do Vídeo</th>
+          <th>Thumbnail</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="videoList"></tbody>
+    </table>
+    <button onclick="window.location.href='index.html'">Voltar para Player</button>
+
+    <script>
+      const supabaseUrl = 'https://ztbossnfxijdsclozmho.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0Ym9zc25meGlqZHNjbG96bWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NTU2NTAsImV4cCI6MjA3NDIzMTY1MH0.msvIzvLBmD0_wUHdHTPiQPoTtrhIkypY72GKVJyvwj4'; // Sua chave anônima
+      const supabase = Supabase.createClient(supabaseUrl, supabaseKey, {
+        global: {
+          headers: {
+            'apikey': supabaseKey
+          }
+        }
+      });
+
+      async function testSupabaseConnection() {
+        console.log('Testando conexão com Supabase em list.html...', new Date().toLocaleString());
+        console.log('Cabeçalhos enviados:', {
+          Authorization: `Bearer ${supabaseKey.substring(0, 20)}...`,
+          apikey: supabaseKey.substring(0, 20) + '...'
+        });
+        try {
+          const { data, error } = await supabase.from('video_data').select('*').limit(1);
+          if (error) {
+            console.error('Erro na conexão com Supabase:', error);
+            alert(`Erro na conexão com Supabase: ${error.message} (Código: ${error.code || 'N/A'})`);
+            return false;
+          } else {
+            console.log('Conexão com Supabase bem-sucedida:', data);
+            return true;
+          }
+        } catch (err) {
+          console.error('Erro inesperado na conexão com Supabase:', err);
+          console.log('Detalhes do erro:', {
+            name: err.name,
+            message: err.message || 'Mensagem vazia',
+            stack: err.stack || 'Stack vazio'
+          });
+          alert(`Erro inesperado na conexão com Supabase: ${err.message || 'Erro sem mensagem (ver console para detalhes)'}`);
+          return false;
+        }
+      }
+      testSupabaseConnection();
+
+      async function loadVideoList() {
+        console.log('loadVideoList chamado às', new Date().toLocaleString());
+        try {
+          const { data, error } = await supabase
+            .from('video_data')
+            .select('*');
+          if (error) {
+            console.error('Erro ao carregar lista:', error);
+            alert(`Erro ao carregar lista: ${error.message} (Código: ${error.code || 'N/A'})`);
+            return;
+          }
+          console.log('Dados recebidos do Supabase:', data);
+          const tbody = document.getElementById('videoList');
+          tbody.innerHTML = '';
+          if (data.length === 0) {
+            console.log('Nenhum vídeo encontrado na tabela video_data');
+            tbody.innerHTML = '<tr><td colspan="3">Nenhum vídeo salvo.</td></tr>';
+            return;
+          }
+          data.forEach(item => {
+            console.log('Processando item:', item);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td class="left">
+                <div>Video ID: ${item.video_id}</div>
+                <div>Título: ${item.title}</div>
+                <div>Canal: ${item.channel_name}</div>
+                <div>Pausa em: ${formatTime(item.pause_time)}</div>
+              </td>
+              <td class="right">
+                <img src="${item.thumbnail}" alt="Thumbnail">
+              </td>
+              <td>
+                <button onclick="deleteVideo(${item.id})">Deletar</button>
+                <button onclick="selectVideo('${item.video_id}', ${item.pause_time})">Selecionar</button>
+              </td>
+            `;
+            tbody.appendChild(row);
+          });
+        } catch (err) {
+          console.error('Erro inesperado ao carregar lista:', err);
+          console.log('Detalhes do erro:', {
+            name: err.name,
+            message: err.message || 'Mensagem vazia',
+            stack: err.stack || 'Stack vazio'
+          });
+          alert(`Erro inesperado ao carregar lista: ${err.message || 'Erro sem mensagem (ver console para detalhes)'}`);
+        }
+      }
+
+      async function deleteVideo(id) {
+        console.log('deleteVideo chamado para id:', id);
+        try {
+          const { error } = await supabase
+            .from('video_data')
+            .delete()
+            .eq('id', id);
+          if (error) {
+            console.error('Erro ao deletar:', error);
+            alert(`Erro ao deletar vídeo: ${error.message}`);
+          } else {
+            console.log('Vídeo deletado com sucesso, id:', id);
+            alert('Vídeo deletado com sucesso!');
+            loadVideoList();
+          }
+        } catch (err) {
+          console.error('Erro inesperado ao deletar:', err);
+          alert(`Erro inesperado ao deletar: ${err.message}`);
+        }
+      }
+
+      function selectVideo(videoId, pauseTime) {
+        console.log('selectVideo chamado:', { videoId, pauseTime });
+        window.location.href = `index.html?videoId=${videoId}&pauseTime=${pauseTime}`;
+      }
+
+      function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${minutes}:${secs.toString().padStart(2, "0")}`;
+      }
+
+      loadVideoList();
+    </script>
+  </body>
+</html>
